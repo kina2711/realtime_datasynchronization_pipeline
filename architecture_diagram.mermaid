@@ -1,0 +1,39 @@
+flowchart LR
+    %% Định nghĩa các style (màu sắc, kiểu dáng)
+    classDef db fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+    classDef process fill:#fff9c4,stroke:#fbc02d,stroke-width:2px,rx:10,ry:10;
+    classDef queue fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,stroke-dasharray: 5 5;
+    classDef stream fill:#ffe0b2,stroke:#e65100,stroke-width:2px;
+
+    %% Các node (thành phần hệ thống)
+    subgraph Source [Nguồn Dữ Liệu]
+        direction TB
+        MySQL[("MySQL DB\n(Table: users)")]:::db
+        Trigger(Trigger CDC):::process
+        LogTable[("MySQL Log Table\n(user_log_after)")]:::db
+    end
+
+    subgraph Ingestion [Thu Thập & Vận Chuyển]
+        Producer([Python Producer\n(trigger-kafka.py)]):::process
+        Kafka{{"Apache Kafka\n(Topic: datdepzai)"}}:::queue
+    end
+
+    subgraph Processing [Xử Lý Streaming]
+        Spark[/"Spark Streaming\n(spark-streaming.py)"/]:.:stream
+    end
+
+    subgraph Sink [Đích Dữ Liệu]
+        MongoDB[("MongoDB\n(Collection: users)")]:::db
+    end
+
+    %% Các đường nối (Luồng dữ liệu)
+    MySQL -->|Insert/Update/Delete| Trigger
+    Trigger -->|Ghi log| LogTable
+    LogTable -->|Polling (Quét liên tục)| Producer
+    Producer -->|JSON Message| Kafka
+    Kafka -->|Consume (Đọc stream)| Spark
+    Spark -->|Transform & Clean| Spark
+    Spark -->|Write (Ghi)| MongoDB
+
+    %% Ghi chú
+    linkStyle 0,1,2,3,4,5,6 stroke-width:2px,fill:none,stroke:gray;
